@@ -215,6 +215,30 @@
       <b-form-textarea id="json-data" rows="4" v-model="pmqlQuery"/>
       <small class="form-text text-muted">{{ $t('Advanced data search') }}</small>
     </div>
+
+    <div v-if="dataSource === dataSourceValues.external">
+      <b-modal v-model="showExternalApiPopup" size="lg" centered :title="$t('Select List External API Config')" v-cloak>
+        <div class="editor-container">
+          <div>
+            <label for="data-connectors">{{ $t('Select Connector') }}</label>
+            <b-form-select @change="getConnectorTableList" id="data-connectors" v-model="selectedDataConnector" :options="dataConnectors" data-cy="data-connector" />
+          </div>
+          <div>
+            <label for="data-connectors-tables">{{ $t('Select Table') }}</label>
+            <b-form-select @change="getConnectorTableColumnList" id="data-connectors-tables" v-model="selectedDataConnectorTable" :options="dataConnectorTables" data-cy="data-connector" />
+          </div>
+          <div>
+            <label for="data-connectors-tables-columns">{{ $t('Select Column') }}</label>
+            <b-form-select id="data-connectors-tables-columns" v-model="selectedDataConnectorTableColumn" :options="dataConnectorTableColumns" data-cy="data-connector" />
+          </div>
+        </div>
+        <div slot="modal-footer">
+          <b-button @click="closePopup" class="btn btn-secondary text-uppercase" data-cy="inspector-monaco-json-expanded-close">
+            {{ $t('Close') }}
+          </b-button>
+        </div>
+      </b-modal>
+    </div>
   </div>
 </template>
 
@@ -295,6 +319,13 @@ export default {
         }
       ],
       valueTypeReturned: '',
+      showExternalApiPopup: false,
+      dataConnectors: [],
+      selectedDataConnector: '',
+      dataConnectorTables: [],
+      selectedDataConnectorTable: '',
+      dataConnectorTableColumns: [],
+      selectedDataConnectorTableColumn: '',
     };
   },
   watch: {
@@ -321,6 +352,12 @@ export default {
       this.editIndex = this.options.editIndex;
       this.removeIndex = this.options.removeIndex;
       this.valueTypeReturned = this.options.valueTypeReturned;
+      this.dataConnectors = this.options.dataConnectors;
+      this.selectedDataConnector = this.options.selectedDataConnector;
+      this.dataConnectorTables = this.options.dataConnectorTables;
+      this.dataConnectorTableColumns = this.options.dataConnectorTableColumns;
+      this.selectedDataConnectorTable = this.options.selectedDataConnectorTable;
+      this.selectedDataConnectorTableColumn = this.options.selectedDataConnectorTableColumn;
     },
     dataSource(val) {
       this.showRenderAs = true;
@@ -329,6 +366,7 @@ export default {
           this.jsonData = '';
           this.dataName = '';
           this.getDataSourceList();
+          break;
         case 'dataObject':
           this.jsonData = '';
           this.selectedDataSource = '';
@@ -336,6 +374,10 @@ export default {
         case 'provideData':
           this.dataName = '';
           this.selectedDataSource = '';
+          break;
+        case 'external':
+          this.showExternalApiPopup = true;
+          this.getDataConnectorList();
           break;
       }
     },
@@ -377,7 +419,7 @@ export default {
     },
     dataObjectOptions() {
       if (!this.dataName) {
-        this.dataName = this.options.dataName ? this.options.dataName : "response";
+        this.dataName = this.options.dataName ? this.options.dataName : 'response';
       }
       return {
         dataSource: this.dataSource,
@@ -402,6 +444,12 @@ export default {
         editIndex: this.editIndex,
         removeIndex: this.removeIndex,
         valueTypeReturned: this.valueTypeReturned,
+        dataConnectors: this.dataConnectors,
+        selectedDataConnector: this.selectedDataConnector,
+        dataConnectorTables: this.dataConnectorTables,
+        dataConnectorTableColumns: this.dataConnectorTableColumns,
+        selectedDataConnectorTable: this.selectedDataConnectorTable,
+        selectedDataConnectorTableColumn: this.selectedDataConnectorTableColumn,
       };
     },
   },
@@ -424,8 +472,57 @@ export default {
     this.renderAs = this.options.renderAs;
     this.allowMultiSelect = this.options.allowMultiSelect;
     this.valueTypeReturned = this.options.valueTypeReturned;
+    this.dataConnectors = this.options.dataConnectors;
+    this.selectedDataConnector = this.options.selectedDataConnector;
+    this.dataConnectorTables = this.options.dataConnectorTables;
+    this.dataConnectorTableColumns = this.options.dataConnectorTableColumns;
+    this.selectedDataConnectorTable = this.options.selectedDataConnectorTable;
+    this.selectedDataConnectorTableColumn = this.options.selectedDataConnectorTableColumn;
   },
   methods: {
+    getDataConnectorList() {
+      ProcessMaker.apiClient
+        .get('/external/connectors')
+        .then(response => {
+          let jsonData = response.data.data;
+          // Map the data sources response to value/text items list
+          this.dataConnectors = jsonData.map((connector) => {
+            return {
+              value: connector['id'],
+              text: connector['dbName'],
+            };
+          });
+        });
+    },
+    getConnectorTableList() {
+      ProcessMaker.apiClient
+        .get('/external/tables?connector=' + this.selectedDataConnector)
+        .then(response => {
+          let jsonData = response.data.data;
+          // Map the data sources response to value/text items list
+          this.dataConnectorTables = jsonData.map((connector) => {
+            return {
+              value: connector['name'],
+              text: connector['name'],
+            };
+          });
+        });
+    },
+    getConnectorTableColumnList() {
+      ProcessMaker.apiClient
+        .get('/external/columns?connector=' + this.selectedDataConnector + '&table=' + this.selectedDataConnectorTable)
+        .then(response => {
+          let jsonData = response.data.data;
+          // Map the data sources response to value/text items list
+          this.dataConnectorTableColumns = jsonData.map((connector) => {
+            return {
+              value: connector['name'],
+              text: connector['name'],
+            };
+          });
+        });
+    },
+
     getDataSourceList() {
       //If no ProcessMaker is found, datasources can't be loaded
       if (typeof ProcessMaker === 'undefined') {
@@ -580,6 +677,7 @@ export default {
     },
     closePopup() {
       this.showPopup = false;
+      this.showExternalApiPopup = false;
     },
   },
 };
